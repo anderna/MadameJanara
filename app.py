@@ -5,9 +5,14 @@ from gtts import gTTS
 import os
 import io
 
-# --- CONFIGURAÇÃO DA API ---
-os.environ["GOOGLE_API_KEY"] = "AIzaSyAj-gvxEEYcecTPb9sdXWrhVTL1fh58_9g"
-genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+# --- CONFIGURAÇÃO SEGURA DA API ---
+# O app agora busca a chave nas configurações escondidas (Secrets)
+if "GOOGLE_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+else:
+    # Fallback para teste local se você ainda usar o arquivo .env ou manual
+    os.environ["GOOGLE_API_KEY"] = "COLOQUE_AQUI_APENAS_PARA_TESTE_LOCAL"
+    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Madame Janara - O Oráculo Digital", layout="centered")
@@ -23,41 +28,22 @@ st.markdown("""
 
 # --- LÓGICA DE DESCOBERTA DE MODELO ---
 def obter_modelo_disponivel():
-    # Listamos os modelos para o terminal (você verá isso no VS Code)
-    # Isso ajuda no troubleshooting de Managed Services
-    print("--- Verificando Inventário de Modelos ---")
     modelos_suportados = []
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            modelos_suportados.append(m.name)
-            print(f"Modelo encontrado: {m.name}")
-    
-    # Prioridade 1: models/gemini-1.5-flash
-    # Prioridade 2: models/gemini-1.5-pro
-    # Prioridade 3: Qualquer um que contenha 'flash'
-    if 'models/gemini-1.5-flash' in modelos_suportados:
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                modelos_suportados.append(m.name)
+        
+        if 'models/gemini-1.5-flash' in modelos_suportados:
+            return 'gemini-1.5-flash'
+        return modelos_suportados[0].split('/')[-1]
+    except:
         return 'gemini-1.5-flash'
-    elif 'models/gemini-1.5-pro' in modelos_suportados:
-        return 'gemini-1.5-pro'
-    
-    # Fallback para o primeiro disponível que suporte conteúdo
-    return modelos_suportados[0].split('/')[-1] if modelos_suportados else 'gemini-1.5-flash'
 
-# --- LÓGICA DA IA ---
 def analisar_mao(imagem):
     nome_modelo = obter_modelo_disponivel()
     model = genai.GenerativeModel(nome_modelo)
-    
-    prompt = """
-    Aja como Madame Janara, uma cigana experiente e empática. 
-    Analise a imagem da palma da mão fornecida.
-    ESTRUTURA DA RESPOSTA:
-    1. Saudação mística personalizada.
-    2. PONTO POSITIVO: Identifique uma linha forte e elogia.
-    3. DESAFIO: Use 'Vejo que sua energia tem sido muito exigida...'.
-    4. MOTIVAÇÃO FINAL: Previsão de luz e conselho prático.
-    Máximo 150 palavras. Use português do Brasil.
-    """
+    prompt = "Aja como Madame Janara, uma cigana experiente. Analise a palma da mão: 1. Saudação. 2. Ponto positivo. 3. Desafio (Vejo que sua energia...). 4. Motivação final. Máximo 150 palavras."
     
     imagem.thumbnail((1024, 1024))
     response = model.generate_content([prompt, imagem])
@@ -86,7 +72,7 @@ with st.container():
                     st.audio(audio_fp, format='audio/mp3')
                     st.success("A luz guia seu caminho!")
                 except Exception as e:
-                    st.error("A visão ainda está nublada. Verifique os logs no terminal.")
+                    st.error("Madame Janara teve uma visão nublada.")
                     st.exception(e)
     else:
         st.info("Aguardando sua foto para iniciar a leitura...")
