@@ -21,38 +21,50 @@ st.markdown("""
         color: #f3e5ab;
     }
     .main {
-        background: rgba(20, 15, 10, 0.9);
-        padding: 25px;
-        border-radius: 15px;
+        background: rgba(25, 20, 15, 0.95);
+        padding: 30px;
+        border-radius: 20px;
         border: 1px solid #d4af37;
     }
+    h1, h2, h3 { color: #d4af37 !important; }
     .stButton>button {
-        background: #d4af37;
+        background: linear-gradient(45deg, #d4af37, #aa8a2e);
         color: black !important;
-        width: 100%;
+        font-weight: bold;
         border-radius: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LÓGICA DE IA ---
+# --- LÓGICA DE IA COM FALLBACK DE MODELO ---
 def analisar_destino(imagem, nome, data_nasc, signo):
-    # Usando o modelo mais estável para produção
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Lista de nomes possíveis para o modelo em diferentes versões da API
+    model_variants = [
+        'gemini-1.5-flash',
+        'models/gemini-1.5-flash',
+        'gemini-1.5-flash-latest'
+    ]
     
     prompt = f"""
     Aja como Madame Janara, uma cigana sábia. 
     Consulente: {nome}, Nascido em: {data_nasc.strftime('%d/%m/%Y')}, Signo: {signo}.
-    Analise a imagem da mão cruzando com o zodíaco. 
-    Seja detalhada, carismática e misteriosa. Máximo 250 palavras.
+    Analise a palma da mão na foto e cruze com as energias zodiacais. 
+    Seja poética, detalhada e inspiradora. Máximo 250 palavras.
     """
     
-    # Otimização agressiva para fotos de alta resolução (como S26 Ultra)
-    # Reduzimos para 800px para garantir que o upload seja instantâneo
-    imagem.thumbnail((800, 800)) 
+    imagem.thumbnail((800, 800))
     
-    response = model.generate_content([prompt, imagem])
-    return response.text
+    last_error = None
+    for model_name in model_variants:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content([prompt, imagem])
+            return response.text
+        except Exception as e:
+            last_error = e
+            continue
+            
+    raise last_error
 
 # --- INTERFACE ---
 st.title("🔮 Oráculo de Madame Janara")
@@ -60,36 +72,31 @@ st.title("🔮 Oráculo de Madame Janara")
 with st.container():
     col1, col2 = st.columns(2)
     with col1:
-        nome = st.text_input("Qual seu nome, viajante?")
+        nome = st.text_input("Qual seu nome, viajante?", value="Anderson")
         data_nasc = st.date_input("Data de Nascimento", value=date(1981, 7, 28), 
                                  min_value=date(1900, 1, 1), format="DD/MM/YYYY")
     with col2:
-        signo = st.selectbox("Seu Signo:", ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", 
-                                            "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"])
+        signo = st.selectbox("Seu Signo Solar:", ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", 
+                                                 "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"], index=4)
 
-    uploaded_file = st.file_uploader("Mostre sua palma...", type=["jpg", "jpeg", "png"])
+    uploaded_file = st.file_uploader("Mostre-me sua palma...", type=["jpg", "jpeg", "png"])
 
-    if uploaded_file is not None:
+    if uploaded_file is not None and nome:
         image = Image.open(uploaded_file)
         st.image(image, width=300)
         
         if st.button("Revelar meu Destino"):
-            with st.spinner("Madame Janara consulta os ventos..."):
+            with st.spinner("Madame Janara consulta os astros..."):
                 try:
-                    # Chamar a IA
-                    resultado = analisar_destino(image, nome, data_nasc, signo)
-                    
+                    leitura = analisar_destino(image, nome, data_nasc, signo)
                     st.markdown("---")
                     st.subheader(f"📜 A Profecia para {nome}")
-                    st.write(resultado)
+                    st.write(leitura)
                     
-                    # Áudio
-                    tts = gTTS(text=resultado, lang='pt', tld='com.br')
+                    tts = gTTS(text=leitura, lang='pt', tld='com.br')
                     audio_fp = io.BytesIO()
                     tts.write_to_fp(audio_fp)
                     st.audio(audio_fp, format='audio/mp3')
-                    
                 except Exception as e:
-                    st.error("As névoas do tempo estão nubladas. Erro técnico:")
-                    # Revelar o erro real para o Anderson debugar
+                    st.error("As névoas continuam densas. Verifique a versão da biblioteca.")
                     st.exception(e)
