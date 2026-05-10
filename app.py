@@ -1,78 +1,106 @@
 import streamlit as st
 import google.generativeai as genai
 from PIL import Image
-from gtts import gTTS
+from gtts import gTTS # Mantido como fallback, mas recomendo ElevenLabs
 import os
 import io
 
-# --- CONFIGURAÇÃO SEGURA DA API ---
-# O app agora busca a chave nas configurações escondidas (Secrets)
+# --- CONFIGURAÇÃO SEGURA ---
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-else:
-    # Fallback para teste local se você ainda usar o arquivo .env ou manual
-    os.environ["GOOGLE_API_KEY"] = "COLOQUE_AQUI_APENAS_PARA_TESTE_LOCAL"
-    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Madame Janara - O Oráculo Digital", layout="centered")
-
+# --- CSS AVANÇADO (Interface Imersiva) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; color: #e0e0e0; }
-    .main { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 20px; padding: 30px; border: 1px solid rgba(255, 255, 255, 0.1); }
-    h1 { color: #d4af37; text-align: center; font-family: 'Serif'; }
-    .stButton>button { background-color: #d4af37; color: black; width: 100%; border-radius: 10px; font-weight: bold; }
+    .stApp {
+        background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
+                    url('https://images.unsplash.com/photo-1515515024443-43152697813a?q=80&w=2070&auto=format&fit=crop');
+        background-size: cover;
+        color: #f3e5ab;
+    }
+    .stTextInput>div>div>input, .stDateInput>div>div>input {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+        border: 1px solid #d4af37;
+    }
+    .main {
+        background: rgba(20, 20, 25, 0.85);
+        padding: 40px;
+        border-radius: 25px;
+        border: 2px solid #d4af37;
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+    }
+    h1 {
+        font-family: 'Playfair Display', serif;
+        text-shadow: 2px 2px 4px #000;
+        letter-spacing: 2px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LÓGICA DE DESCOBERTA DE MODELO ---
-def obter_modelo_disponivel():
-    modelos_suportados = []
-    try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                modelos_suportados.append(m.name)
-        
-        if 'models/gemini-1.5-flash' in modelos_suportados:
-            return 'gemini-1.5-flash'
-        return modelos_suportados[0].split('/')[-1]
-    except:
-        return 'gemini-1.5-flash'
-
-def analisar_mao(imagem):
-    nome_modelo = obter_modelo_disponivel()
-    model = genai.GenerativeModel(nome_modelo)
-    prompt = "Aja como Madame Janara, uma cigana experiente. Analise a palma da mão: 1. Saudação. 2. Ponto positivo. 3. Desafio (Vejo que sua energia...). 4. Motivação final. Máximo 150 palavras."
+# --- LÓGICA REFINADA DA MADAME ---
+def analisar_destino(imagem, nome, data_nasc, signo):
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    prompt = f"""
+    Você é Madame Janara. Uma cigana mística, carismática e profunda.
+    DADOS DO CONSULENTE:
+    Nome: {nome}
+    Nascimento: {data_nasc}
+    Signo: {signo}
+    
+    TAREFA:
+    Analise a palma da mão na imagem e cruze com as energias do signo de {signo}.
+    A resposta deve ser detalhada, rica em metáforas (fogueira, cartas, estrelas, caravana).
+    
+    ESTRUTURA:
+    1. Saudação calorosa chamando pelo nome.
+    2. O que o Zodíaco revela combinado com a linha da cabeça.
+    3. Um desafio atual (seja empática: 'Vejo que sua energia tem sido muito exigida...').
+    4. Um segredo revelado pelas linhas da mão sobre o futuro próximo.
+    5. Conselho final motivador e poderoso.
+    
+    Tom: Detalhado, misterioso e acolhedor. Use cerca de 250 palavras.
+    """
     
     imagem.thumbnail((1024, 1024))
     response = model.generate_content([prompt, imagem])
     return response.text
 
-# --- INTERFACE ---
-st.title("✨ Madame Janara ✨")
+# --- INTERFACE DE USUÁRIO ---
+st.title("🔮 O Oráculo de Madame Janara")
+st.markdown("### Deixe que as estrelas e suas mãos contem sua história...")
 
 with st.container():
-    uploaded_file = st.file_uploader("Envie uma foto da sua palma...", type=["jpg", "jpeg", "png"])
+    col1, col2 = st.columns(2)
+    with col1:
+        nome = st.text_input("Qual seu nome, viajante?")
+        data_nasc = st.date_input("Quando você viu a luz pela primeira vez?")
+    with col2:
+        signos = ["Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", 
+                  "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"]
+        signo = st.selectbox("Seu signo solar:", signos)
+        horario = st.time_input("Hora do nascimento (opcional)", value=None)
 
-    if uploaded_file is not None:
+    uploaded_file = st.file_uploader("Mostre-me sua palma...", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file is not None and nome:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Sua conexão com o destino...", use_column_width=True)
+        st.image(image, width=300)
         
-        if st.button("Revelar meu Destino"):
-            with st.spinner("Madame Janara consulta os ventos..."):
+        if st.button("Consultar o Destino"):
+            with st.spinner("Madame Janara embaralha as energias..."):
                 try:
-                    resultado_texto = analisar_mao(image)
-                    st.subheader("A Leitura de Madame Janara:")
-                    st.write(resultado_texto)
+                    leitura = analisar_destino(image, nome, data_nasc, signo)
+                    st.markdown("---")
+                    st.subheader(f"📜 A Profecia para {nome}")
+                    st.write(leitura)
                     
-                    tts = gTTS(text=resultado_texto, lang='pt', tld='com.br')
+                    # Áudio
+                    tts = gTTS(text=leitura, lang='pt', tld='com.br')
                     audio_fp = io.BytesIO()
                     tts.write_to_fp(audio_fp)
                     st.audio(audio_fp, format='audio/mp3')
-                    st.success("A luz guia seu caminho!")
+                    
                 except Exception as e:
-                    st.error("Madame Janara teve uma visão nublada.")
-                    st.exception(e)
-    else:
-        st.info("Aguardando sua foto para iniciar a leitura...")
+                    st.error("As névoas do tempo estão muito densas. Tente novamente.")
