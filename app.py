@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v6.3", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.4", layout="centered")
 
 st.markdown("""
     <style>
@@ -50,19 +50,35 @@ def unlock_t3(): st.session_state.btn_t3_mapa = True
 def unlock_t4(): st.session_state.btn_t4_num = True
 def unlock_t5(): st.session_state.btn_t5_casal = True
 
-# --- 5. MOTORES DE IA OTIMIZADOS (ZERO DESPERDÍCIO DE QUOTA) ---
+# --- 5. MOTORES DE IA OTIMIZADOS E RESILIENTES ---
 def chamar_ia(prompt, imagem):
-    try:
-        # Chamada direta e seca para economizar requisições
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        # 2048 tokens é o ponto de equilíbrio ideal: não corta o texto e não estoura a cota
-        config = genai.types.GenerationConfig(max_output_tokens=2048, temperature=0.85)
-        imagem.thumbnail((800, 800))
-        return model.generate_content([prompt, imagem], generation_config=config).text
-    except Exception as e:
-        raise Exception(f"Erro na API do Google: {e}")
+    # Lista de tentativas para contornar o erro 404 sem gastar quota com list_models()
+    modelos_tentativa = [
+        "gemini-1.5-flash",
+        "models/gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro-latest"
+    ]
+    
+    config = genai.types.GenerationConfig(max_output_tokens=2048, temperature=0.85)
+    imagem.thumbnail((800, 800))
+    erro_tecnico = None
+    
+    for modelo in modelos_tentativa:
+        try:
+            model = genai.GenerativeModel(modelo)
+            return model.generate_content([prompt, imagem], generation_config=config).text
+        except Exception as e:
+            erro_tecnico = e
+            msg_erro = str(e)
+            # Se for limite de quota (429), não vale a pena tentar outros modelos
+            if "429" in msg_erro or "Quota" in msg_erro:
+                raise Exception("As energias estão muito intensas agora! A Madame Janara precisa de 60 segundos de descanso para os astros se alinharem.")
+            # Se for 404, avança para o próximo modelo da lista
+            continue
+            
+    raise Exception(f"Erro persistente na ligação aos astros (API): {erro_tecnico}")
 
-# Prompts refinados para garantir a densidade e o fechamento
 def gerar_t1(d, img):
     p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um aperitivo cruzando a mão, astrologia e numerologia. Conclua com uma bênção curta."
     return chamar_ia(p, img)
@@ -144,7 +160,7 @@ if st.session_state.t1_gratis:
                 try:
                     st.session_state.t2_mao = gerar_t2(st.session_state.dados_cache, st.session_state.imagem_cache)
                 except Exception as e:
-                    st.error(f"Erro: {e}")
+                    st.error(f"{e}")
         if st.session_state.t2_mao: st.write(st.session_state.t2_mao)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -160,7 +176,7 @@ if st.session_state.t1_gratis:
                     try:
                         st.session_state.t3_mapa = gerar_t3(st.session_state.dados_cache, st.session_state.imagem_cache)
                     except Exception as e:
-                        st.error(f"Erro: {e}")
+                        st.error(f"{e}")
             if st.session_state.t3_mapa: st.write(st.session_state.t3_mapa)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -176,7 +192,7 @@ if st.session_state.t1_gratis:
                     try:
                         st.session_state.t4_num = gerar_t4(st.session_state.dados_cache, st.session_state.imagem_cache)
                     except Exception as e:
-                        st.error(f"Erro: {e}")
+                        st.error(f"{e}")
             if st.session_state.t4_num: st.write(st.session_state.t4_num)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -192,7 +208,7 @@ if st.session_state.t1_gratis:
                     try:
                         st.session_state.t5_casal = gerar_t5(st.session_state.dados_cache, st.session_state.imagem_cache)
                     except Exception as e:
-                        st.error(f"Erro: {e}")
+                        st.error(f"{e}")
             if st.session_state.t5_casal:
                 st.write(st.session_state.t5_casal)
                 st.markdown("---")
