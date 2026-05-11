@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v6.0", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.1", layout="centered")
 
 st.markdown("""
     <style>
@@ -45,13 +45,12 @@ for t in tiers:
     if t not in st.session_state: st.session_state[t] = None
     if f"btn_{t}" not in st.session_state: st.session_state[f"btn_{t}"] = False
 
-# Callbacks para destravar botões sem resetar a tela
 def unlock_t2(): st.session_state.btn_t2_mao = True
 def unlock_t3(): st.session_state.btn_t3_mapa = True
 def unlock_t4(): st.session_state.btn_t4_num = True
 def unlock_t5(): st.session_state.btn_t5_casal = True
 
-# --- 5. MOTORES DE IA ESPECIALIZADOS (UMA CHAMADA POR NÍVEL) ---
+# --- 5. MOTORES DE IA ESPECIALIZADOS ---
 def get_model():
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -60,30 +59,36 @@ def get_model():
     except: return "gemini-1.5-flash"
 
 def chamar_ia(prompt, imagem):
-    model = genai.GenerativeModel(get_model())
-    config = genai.types.GenerationConfig(max_output_tokens=3000, temperature=0.85)
-    imagem.thumbnail((800, 800))
-    return model.generate_content([prompt, imagem], generation_config=config).text
+    try:
+        model = genai.GenerativeModel(get_model())
+        config = genai.types.GenerationConfig(max_output_tokens=3000, temperature=0.85)
+        imagem.thumbnail((800, 800))
+        return model.generate_content([prompt, imagem], generation_config=config).text
+    except Exception as e:
+        # Tratamento amigável para o erro 429 de limite de cota
+        if "429" in str(e) or "Quota" in str(e):
+            raise Exception("As energias estão muito intensas agora! Madame Janara está atendendo muitos viajantes. Por favor, aguarde 60 segundos e tente novamente.")
+        else:
+            raise Exception(f"As névoas estão densas. {e}")
 
-# Funções geradoras de Prompts Específicos
 def gerar_t1(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um 'aperitivo' cruzando a foto da mão, a astrologia e a numerologia para despertar forte curiosidade para análises mais profundas."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um 'aperitivo' cruzando a foto da mão, a astrologia e a numerologia para despertar curiosidade."
     return chamar_ia(p, img)
 
 def gerar_t2(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda e exclusiva das linhas da Mão da foto. Detalhe Linha da Vida, Coração e Cabeça. Mínimo de 25 linhas de texto denso."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda das linhas da Mão da foto. Detalhe Linha da Vida, Coração e Cabeça. Mínimo de 25 linhas."
     return chamar_ia(p, img)
 
 def gerar_t3(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Simule posições de Lua e Ascendente com base no signo solar. Mínimo de 30 linhas focando em personalidade oculta e forças cósmicas."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Mínimo de 30 linhas focando em personalidade oculta."
     return chamar_ia(p, img)
 
 def gerar_t4(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Nasc: {d['data_nasc']}, Numerologia de Destino: {d['num_d']}. Faça uma previsão de 12 meses. Cruze a numerologia {d['num_d']} com o que vê na mão e trace a rota de carreira e sucesso financeiro. Mínimo de 35 linhas."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça uma previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas."
     return chamar_ia(p, img)
 
 def gerar_t5(d, img):
-    p = f"Aja como Madame Janara. DADOS CONSULENTE: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} (Nasc: {d['p_data']}, Signo: {d['p_signo']}, Num: {d['p_num']}). Faça a leitura mais profunda de todas: A Sinastria de Almas. Cruze os astros, a numerologia dos dois e as linhas da mão. Revele karmas de vidas passadas e dê conselhos práticos. Mínimo de 40 linhas."
+    p = f"Aja como Madame Janara. DADOS CONSULENTE: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça A Sinastria de Almas. Cruze astros, numerologia dos dois e as linhas da mão. Mínimo de 40 linhas."
     return chamar_ia(p, img)
 
 # --- 6. INTERFACE ---
@@ -120,13 +125,13 @@ with st.container():
             with st.spinner("Madame Janara tem os primeiros vislumbres..."):
                 try:
                     img = Image.open(uploaded_file)
-                    st.session_state.imagem_cache = img # Salva imagem para não pedir upload de novo
+                    st.session_state.imagem_cache = img
                     d = {'nome': nome, 'data_nasc': data_nasc, 'signo': signo, 'num_d': num_exibido, 'p_nome': p_nome, 'p_data': p_data, 'p_signo': p_signo, 'p_num': p_num}
                     st.session_state.dados_cache = d
                     
                     st.session_state.t1_gratis = gerar_t1(d, img)
                 except Exception as e:
-                    st.error(f"Erro na visão: {e}")
+                    st.error(f"{e}")
         else:
             st.warning("Preencha Nome, Data, Signo e envie a Foto.")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -136,7 +141,7 @@ if st.session_state.t1_gratis:
     st.markdown("### ✨ O Despertar (Análise Básica)")
     st.info(st.session_state.t1_gratis)
 
-    # TIER 2: Leitura de Mão
+    # TIER 2
     st.markdown("<div class='tier-box'>", unsafe_allow_html=True)
     st.subheader("1️⃣ Nível I: O Caminho das Mãos")
     st.write("Uma leitura profunda apenas de suas linhas (Vida, Cabeça e Coração).")
@@ -144,11 +149,14 @@ if st.session_state.t1_gratis:
     if st.session_state.btn_t2_mao:
         if not st.session_state.t2_mao:
             with st.spinner("Lendo as linhas sagradas..."):
-                st.session_state.t2_mao = gerar_t2(st.session_state.dados_cache, st.session_state.imagem_cache)
-        st.write(st.session_state.t2_mao)
+                try:
+                    st.session_state.t2_mao = gerar_t2(st.session_state.dados_cache, st.session_state.imagem_cache)
+                except Exception as e:
+                    st.error(f"{e}")
+        if st.session_state.t2_mao: st.write(st.session_state.t2_mao)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # TIER 3: Mapa Astral + Mão
+    # TIER 3
     if st.session_state.btn_t2_mao:
         st.markdown("<div class='tier-box'>", unsafe_allow_html=True)
         st.subheader("2️⃣ Nível II: O Mapa das Estrelas")
@@ -157,11 +165,14 @@ if st.session_state.t1_gratis:
         if st.session_state.btn_t3_mapa:
             if not st.session_state.t3_mapa:
                 with st.spinner("Mapeando os astros..."):
-                    st.session_state.t3_mapa = gerar_t3(st.session_state.dados_cache, st.session_state.imagem_cache)
-            st.write(st.session_state.t3_mapa)
+                    try:
+                        st.session_state.t3_mapa = gerar_t3(st.session_state.dados_cache, st.session_state.imagem_cache)
+                    except Exception as e:
+                        st.error(f"{e}")
+            if st.session_state.t3_mapa: st.write(st.session_state.t3_mapa)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # TIER 4: Numerologia + Previsão 12 Meses
+    # TIER 4
     if st.session_state.btn_t3_mapa:
         st.markdown("<div class='tier-box'>", unsafe_allow_html=True)
         st.subheader("3️⃣ Nível III: A Coroa do Destino")
@@ -170,11 +181,14 @@ if st.session_state.t1_gratis:
         if st.session_state.btn_t4_num:
             if not st.session_state.t4_num:
                 with st.spinner("Calculando o destino financeiro..."):
-                    st.session_state.t4_num = gerar_t4(st.session_state.dados_cache, st.session_state.imagem_cache)
-            st.write(st.session_state.t4_num)
+                    try:
+                        st.session_state.t4_num = gerar_t4(st.session_state.dados_cache, st.session_state.imagem_cache)
+                    except Exception as e:
+                        st.error(f"{e}")
+            if st.session_state.t4_num: st.write(st.session_state.t4_num)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # TIER 5: Soulmate
+    # TIER 5
     if st.session_state.btn_t4_num and p_nome and p_data:
         st.markdown("<div class='soulmate-box'>", unsafe_allow_html=True)
         st.subheader(f"🌹 Nível Master: A Fusão de Almas")
@@ -183,16 +197,18 @@ if st.session_state.t1_gratis:
         if st.session_state.btn_t5_casal:
             if not st.session_state.t5_casal:
                 with st.spinner("Conectando as duas almas..."):
-                    st.session_state.t5_casal = gerar_t5(st.session_state.dados_cache, st.session_state.imagem_cache)
-            st.write(st.session_state.t5_casal)
-            
-            # Áudio VIP Final
-            st.markdown("---")
-            st.success("Ouça a sua profecia finalizada:")
-            try:
-                tts = gTTS(text=st.session_state.t5_casal, lang='pt', tld='com.br')
-                audio_fp = io.BytesIO()
-                tts.write_to_fp(audio_fp)
-                st.audio(audio_fp, format='audio/mp3')
-            except: pass
+                    try:
+                        st.session_state.t5_casal = gerar_t5(st.session_state.dados_cache, st.session_state.imagem_cache)
+                    except Exception as e:
+                        st.error(f"{e}")
+            if st.session_state.t5_casal:
+                st.write(st.session_state.t5_casal)
+                st.markdown("---")
+                st.success("Ouça a sua profecia finalizada:")
+                try:
+                    tts = gTTS(text=st.session_state.t5_casal, lang='pt', tld='com.br')
+                    audio_fp = io.BytesIO()
+                    tts.write_to_fp(audio_fp)
+                    st.audio(audio_fp, format='audio/mp3')
+                except: pass
         st.markdown("</div>", unsafe_allow_html=True)
