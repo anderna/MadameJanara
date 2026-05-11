@@ -45,11 +45,9 @@ if 'analise' not in st.session_state:
 
 # --- 5. MOTOR DE IA (VARREDURA INDESTRUTÍVEL) ---
 def gerar_profecia(imagem, d, num_destino):
-    # O SEGREDO DA RESILIÊNCIA: Buscar a lista real e testar
     modelos_para_testar = []
     try:
         todos_modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # Coloca os modelos 'flash' no topo da fila
         flash_models = [m for m in todos_modelos if 'flash' in m]
         outros_modelos = [m for m in todos_modelos if 'flash' not in m]
         modelos_para_testar = flash_models + outros_modelos
@@ -77,7 +75,6 @@ def gerar_profecia(imagem, d, num_destino):
     config = genai.types.GenerationConfig(max_output_tokens=4000, temperature=0.8)
     
     erro_final = None
-    # Loop de tentativas: testa modelo por modelo até dar certo
     for m_name in modelos_para_testar:
         try:
             model = genai.GenerativeModel(m_name)
@@ -85,7 +82,7 @@ def gerar_profecia(imagem, d, num_destino):
             return response.text
         except Exception as e:
             erro_final = e
-            continue # Tenta o próximo silenciosamente
+            continue 
             
     raise Exception(f"Falha de comunicação com os astros. Detalhe técnico: {erro_final}")
 
@@ -116,4 +113,52 @@ with st.container():
 
     if st.button("🌟 INVOCAR O GRANDE ORÁCULO"):
         if uploaded_file and nome and data_nasc and signo != "Escolha...":
-            with st.spinner("Madame Jan
+            with st.spinner("Madame Janara tece as teias do tempo..."):
+                try:
+                    image = Image.open(uploaded_file)
+                    d = {'nome': nome, 'data_nasc': data_nasc, 'horario': horario, 'cidade': cidade, 'signo': signo, 'p_nome': p_nome, 'p_signo': p_signo}
+                    res = gerar_profecia(image, d, num_exibido)
+                    partes = [p.strip() for p in res.split('---') if p.strip()]
+                    
+                    st.session_state.analise["resumo"] = partes[0] if len(partes) > 0 else ""
+                    st.session_state.analise["padrao"] = partes[1] if len(partes) > 1 else ""
+                    st.session_state.analise["vip"] = partes[2] if len(partes) > 2 else ""
+                    st.session_state.analise["soulmate"] = partes[3] if len(partes) > 3 else ""
+                    st.session_state.analise["feita"] = True
+                    st.rerun() 
+                except Exception as e:
+                    st.error(f"Madame Janara teve uma visão nublada. {e}")
+        else:
+            st.warning("Preencha Nome, Data, Signo e envie a Foto da mão.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# --- 7. RESULTADOS ---
+res = st.session_state.analise
+if res["feita"]:
+    st.markdown("---")
+    st.markdown(f"### ✨ O Brilho do Momento para {nome}")
+    st.info(res["resumo"])
+    
+    with st.expander("🔓 Leitura das Mãos (Análise Holística)"):
+        st.write(res["padrao"])
+        
+    if res["vip"]:
+        st.markdown(f"<div class='vip-section'><h3>💎 Triangulação: Numerologia & Destino VIP</h3>", unsafe_allow_html=True)
+        if st.button("Revelar Laudo de Destino Completo"):
+            st.write(res["vip"])
+            tts = gTTS(text=res["vip"], lang='pt', tld='com.br')
+            audio_fp = io.BytesIO()
+            tts.write_to_fp(audio_fp)
+            st.audio(audio_fp, format='audio/mp3')
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if res["soulmate"] and p_nome:
+        st.markdown(f"<div class='soulmate-section'><h3>🌹 Sinastria de Almas: {nome} & {p_nome}</h3>", unsafe_allow_html=True)
+        email = st.text_input("E-mail para o guia completo:")
+        if st.button("💖 Revelar Segredos do Casal"):
+            if email:
+                st.write(res["soulmate"])
+                msg = urllib.parse.quote(f"A Madame Janara revelou nosso futuro! ✨ Confira: https://madamejanara.streamlit.app")
+                st.markdown(f'<a href="https://wa.me/?text={msg}" target="_blank"><button style="width:100%; background:#25D366; color:white; border-radius:50px; border:none; padding:15px; font-weight:bold; cursor:pointer;">📲 Compartilhar no WhatsApp</button></a>', unsafe_allow_html=True)
+            else:
+                st.warning("Insira o seu e-mail para continuar.")
