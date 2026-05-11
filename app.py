@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v5.0", layout="centered")
+st.set_page_config(page_title="Madame Janara v5.1", layout="centered")
 
 st.markdown("""
     <style>
@@ -31,22 +31,31 @@ st.markdown("""
         background-size: cover; background-attachment: fixed; color: #f3e5ab;
     }
     .main-box { background: rgba(10, 8, 5, 0.98); padding: 30px; border-radius: 25px; border: 1px solid #d4af37; }
-    .stButton>button { background: #d4af37 !important; color: black !important; font-weight: 900; border-radius: 50px; width: 100%; height: 3.5em; }
+    .stButton>button { background: #d4af37 !important; color: black !important; font-weight: 900; border-radius: 50px; width: 100%; height: 3.5em; transition: 0.3s; }
+    .stButton>button:hover { background: #fff !important; box-shadow: 0 0 20px #d4af37; }
     .vip-section { border: 2px solid #ffd700; background: rgba(212, 175, 55, 0.1); padding: 25px; border-radius: 15px; margin-top: 20px; }
     .soulmate-section { border: 2px solid #ff4d4d; background: rgba(74, 26, 26, 0.3); padding: 25px; border-radius: 15px; margin-top: 20px; }
     h1, h2, h3 { color: #d4af37 !important; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. GESTÃO DE ESTADO (PERSISTENTE ATÉ O REFRESH) ---
+# --- 4. GESTÃO DE ESTADO ---
 if 'analise' not in st.session_state:
     st.session_state.analise = {"resumo": "", "padrao": "", "vip": "", "soulmate": "", "feita": False}
 
-# --- 5. MOTOR DE IA (ESTRATÉGIA DE CONEXÃO ESTÁVEL) ---
+# --- 5. MOTOR DE IA (VARREDURA INDESTRUTÍVEL) ---
 def gerar_profecia(imagem, d, num_destino):
-    # Usando o nome mais estável e compatível do modelo
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    
+    # O SEGREDO DA RESILIÊNCIA: Buscar a lista real e testar
+    modelos_para_testar = []
+    try:
+        todos_modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # Coloca os modelos 'flash' no topo da fila
+        flash_models = [m for m in todos_modelos if 'flash' in m]
+        outros_modelos = [m for m in todos_modelos if 'flash' not in m]
+        modelos_para_testar = flash_models + outros_modelos
+    except:
+        modelos_para_testar = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-1.5-pro"]
+
     prompt = f"""
     Aja como Madame Janara, a maior autoridade em Quiromancia, Astrologia e Numerologia.
     DADOS: {d['nome']}, Nasc: {d['data_nasc']} {d['horario']} em {d['cidade']}.
@@ -57,29 +66,28 @@ def gerar_profecia(imagem, d, num_destino):
 
     1 (TEASER): Resumo místico curto de 2 frases.
     ---
-    2 (GRATUITO): Análise qualitativa cruzando as linhas da mão com o signo solar. 
-    Desenvolva um texto denso de pelo menos 12 linhas. Fale sobre personalidade e essência.
+    2 (GRATUITO): Análise qualitativa cruzando as linhas da mão com o signo solar. Desenvolva um texto denso de pelo menos 15 linhas.
     ---
-    3 (VIP): A Grande Triangulação: Numerologia {num_destino}, Mapa Astral e Quiromancia. 
-    Desenvolva uma análise profunda de pelo menos 35 linhas. 
-    Cruze o número de destino com a carreira e finanças. Detalhe os próximos 12 meses.
+    3 (VIP): A Triangulação: Numerologia {num_destino}, Mapa Astral e Quiromancia. Desenvolva pelo menos 35 linhas focando em carreira, finanças e os próximos 12 meses.
     ---
-    4 (SOULMATE): Sinastria mística entre {d['nome']} e {d['p_nome']}. 
-    Desenvolva um texto longo de pelo menos 35 linhas. 
-    Revele conexões de vidas passadas e dê conselhos práticos para o casal.
+    4 (SOULMATE): Sinastria mística entre {d['nome']} e {d['p_nome']}. Desenvolva pelo menos 35 linhas. Revele conexões de vidas passadas e dê conselhos práticos para o casal.
     """
     
     imagem.thumbnail((800, 800))
     config = genai.types.GenerationConfig(max_output_tokens=4000, temperature=0.8)
     
-    try:
-        response = model.generate_content([prompt, imagem], generation_config=config)
-        return response.text
-    except Exception as e:
-        # Se falhar, tentamos o caminho completo como último recurso
-        model_retry = genai.GenerativeModel("models/gemini-1.5-flash")
-        response = model_retry.generate_content([prompt, imagem], generation_config=config)
-        return response.text
+    erro_final = None
+    # Loop de tentativas: testa modelo por modelo até dar certo
+    for m_name in modelos_para_testar:
+        try:
+            model = genai.GenerativeModel(m_name)
+            response = model.generate_content([prompt, imagem], generation_config=config)
+            return response.text
+        except Exception as e:
+            erro_final = e
+            continue # Tenta o próximo silenciosamente
+            
+    raise Exception(f"Falha de comunicação com os astros. Detalhe técnico: {erro_final}")
 
 # --- 6. INTERFACE ---
 st.title("🔮 Oráculo Supremo de Madame Janara")
@@ -108,51 +116,4 @@ with st.container():
 
     if st.button("🌟 INVOCAR O GRANDE ORÁCULO"):
         if uploaded_file and nome and data_nasc and signo != "Escolha...":
-            with st.spinner("Madame Janara tece as teias do tempo..."):
-                try:
-                    image = Image.open(uploaded_file)
-                    d = {'nome': nome, 'data_nasc': data_nasc, 'horario': horario, 'cidade': cidade, 'signo': signo, 'p_nome': p_nome, 'p_signo': p_signo}
-                    res = gerar_profecia(image, d, num_exibido)
-                    partes = [p.strip() for p in res.split('---') if p.strip()]
-                    
-                    st.session_state.analise["resumo"] = partes[0] if len(partes) > 0 else ""
-                    st.session_state.analise["padrao"] = partes[1] if len(partes) > 1 else ""
-                    st.session_state.analise["vip"] = partes[2] if len(partes) > 2 else ""
-                    st.session_state.analise["soulmate"] = partes[3] if len(partes) > 3 else ""
-                    st.session_state.analise["feita"] = True
-                except Exception as e:
-                    st.error(f"Madame Janara teve uma visão nublada. Erro técnico: {e}")
-        else:
-            st.warning("Preencha Nome, Data, Signo e envie a Foto.")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# --- 7. RESULTADOS ---
-res = st.session_state.analise
-if res["feita"]:
-    st.markdown("---")
-    st.markdown(f"### ✨ O Brilho do Momento para {nome}")
-    st.info(res["resumo"])
-    
-    with st.expander("🔓 Leitura das Mãos (Análise Holística)"):
-        st.write(res["padrao"])
-        
-    if res["vip"]:
-        st.markdown(f"<div class='vip-section'><h3>💎 Triangulação: Numerologia & Destino VIP</h3>", unsafe_allow_html=True)
-        if st.button("Revelar Laudo de Destino Completo"):
-            st.write(res["vip"])
-            tts = gTTS(text=res["vip"], lang='pt', tld='com.br')
-            audio_fp = io.BytesIO()
-            tts.write_to_fp(audio_fp)
-            st.audio(audio_fp, format='audio/mp3')
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    if res["soulmate"] and p_nome:
-        st.markdown(f"<div class='soulmate-section'><h3>🌹 Sinastria de Almas: {nome} & {p_nome}</h3>", unsafe_allow_html=True)
-        email = st.text_input("E-mail para o guia completo:")
-        if st.button("💖 Revelar Segredos do Casal"):
-            if email:
-                st.write(res["soulmate"])
-                msg = urllib.parse.quote(f"A Madame Janara revelou nosso futuro! ✨ Confira: https://madamejanara.streamlit.app")
-                st.markdown(f'<a href="https://wa.me/?text={msg}" target="_blank"><button style="width:100%; background:#25D366; color:white; border-radius:50px; border:none; padding:15px; font-weight:bold; cursor:pointer;">📲 Compartilhar no WhatsApp</button></a>', unsafe_allow_html=True)
-            else:
-                st.warning("Insira o seu e-mail.")
+            with st.spinner("Madame Jan
