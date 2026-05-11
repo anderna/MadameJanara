@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v6.4", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.5", layout="centered")
 
 st.markdown("""
     <style>
@@ -39,7 +39,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. GESTÃO DE ESTADO (LAZY LOADING DE TIERS) ---
+# --- 4. GESTÃO DE ESTADO ---
 tiers = ['t1_gratis', 't2_mao', 't3_mapa', 't4_num', 't5_casal']
 for t in tiers:
     if t not in st.session_state: st.session_state[t] = None
@@ -50,53 +50,37 @@ def unlock_t3(): st.session_state.btn_t3_mapa = True
 def unlock_t4(): st.session_state.btn_t4_num = True
 def unlock_t5(): st.session_state.btn_t5_casal = True
 
-# --- 5. MOTORES DE IA OTIMIZADOS E RESILIENTES ---
+# --- 5. MOTOR DE IA OTIMIZADO ---
 def chamar_ia(prompt, imagem):
-    # Lista de tentativas para contornar o erro 404 sem gastar quota com list_models()
-    modelos_tentativa = [
-        "gemini-1.5-flash",
-        "models/gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro-latest"
-    ]
-    
-    config = genai.types.GenerationConfig(max_output_tokens=2048, temperature=0.85)
-    imagem.thumbnail((800, 800))
-    erro_tecnico = None
-    
-    for modelo in modelos_tentativa:
-        try:
-            model = genai.GenerativeModel(modelo)
-            return model.generate_content([prompt, imagem], generation_config=config).text
-        except Exception as e:
-            erro_tecnico = e
-            msg_erro = str(e)
-            # Se for limite de quota (429), não vale a pena tentar outros modelos
-            if "429" in msg_erro or "Quota" in msg_erro:
-                raise Exception("As energias estão muito intensas agora! A Madame Janara precisa de 60 segundos de descanso para os astros se alinharem.")
-            # Se for 404, avança para o próximo modelo da lista
-            continue
-            
-    raise Exception(f"Erro persistente na ligação aos astros (API): {erro_tecnico}")
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        config = genai.types.GenerationConfig(max_output_tokens=2048, temperature=0.85)
+        imagem.thumbnail((800, 800))
+        return model.generate_content([prompt, imagem], generation_config=config).text
+    except Exception as e:
+        if "429" in str(e) or "Quota" in str(e):
+            raise Exception("As energias estão muito intensas agora! Aguarde 60 segundos para os astros se alinharem.")
+        else:
+            raise Exception(f"Erro na comunicação com os astros: {e}")
 
 def gerar_t1(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um aperitivo cruzando a mão, astrologia e numerologia. Conclua com uma bênção curta."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas cruzando a mão, astrologia e numerologia. Conclua com uma bênção curta."
     return chamar_ia(p, img)
 
 def gerar_t2(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura das linhas da Mão (Vida, Coração e Cabeça). Mínimo de 25 linhas. Termine com uma bênção cigana."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda das linhas da Mão da foto. Mínimo de 25 linhas. Termine com uma bênção cigana."
     return chamar_ia(p, img)
 
 def gerar_t3(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão. Mínimo de 30 linhas. Fale de personalidade oculta. Termine com uma bênção."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Mínimo de 30 linhas. Termine com uma bênção."
     return chamar_ia(p, img)
 
 def gerar_t4(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas focando em finanças. Finalize com bênção de prosperidade."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça uma previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas focando em finanças. Finalize com bênção."
     return chamar_ia(p, img)
 
 def gerar_t5(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça Sinastria de Almas profunda. Cruze astros, numerologia e mãos. Mínimo de 40 linhas. Encerre com uma bênção amorosa para o casal."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça A Sinastria de Almas profunda. Cruze astros, numerologia e linhas da mão. Mínimo de 40 linhas. Encerre perfeitamente com uma bênção para o casal."
     return chamar_ia(p, img)
 
 # --- 6. INTERFACE ---
@@ -139,7 +123,7 @@ with st.container():
                     
                     st.session_state.t1_gratis = gerar_t1(d, img)
                 except Exception as e:
-                    st.error(f"Atenção: {e}")
+                    st.error(f"{e}")
         else:
             st.warning("Preencha Nome, Data, Signo e envie a Foto.")
     st.markdown("</div>", unsafe_allow_html=True)
