@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v6.5", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.6", layout="centered")
 
 st.markdown("""
     <style>
@@ -39,7 +39,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. GESTÃO DE ESTADO ---
+# --- 4. GESTÃO DE ESTADO E CACHE ---
 tiers = ['t1_gratis', 't2_mao', 't3_mapa', 't4_num', 't5_casal']
 for t in tiers:
     if t not in st.session_state: st.session_state[t] = None
@@ -50,18 +50,38 @@ def unlock_t3(): st.session_state.btn_t3_mapa = True
 def unlock_t4(): st.session_state.btn_t4_num = True
 def unlock_t5(): st.session_state.btn_t5_casal = True
 
+# O SEGREDO ESTÁ AQUI: Descobre o modelo disponível e guarda na memória por 1 hora
+# Isso impede o erro 404 (porque usa o nome oficial) e impede o erro 429 (porque só consulta a lista 1 vez)
+@st.cache_data(ttl=3600)
+def descobrir_modelo_seguro():
+    try:
+        modelos_disponiveis = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # Tenta encontrar o Flash primeiro
+        for m in modelos_disponiveis:
+            if 'gemini-1.5-flash' in m:
+                return m
+        # Se não achar, tenta o Pro
+        for m in modelos_disponiveis:
+            if 'gemini-1.5-pro' in m:
+                return m
+        # Se falhar tudo, pega o primeiro que suportar geração e visão
+        return modelos_disponiveis[0]
+    except:
+        return "gemini-1.5-flash" # Fallback extremo
+
 # --- 5. MOTOR DE IA OTIMIZADO ---
 def chamar_ia(prompt, imagem):
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        nome_modelo = descobrir_modelo_seguro()
+        model = genai.GenerativeModel(nome_modelo)
         config = genai.types.GenerationConfig(max_output_tokens=2048, temperature=0.85)
         imagem.thumbnail((800, 800))
         return model.generate_content([prompt, imagem], generation_config=config).text
     except Exception as e:
         if "429" in str(e) or "Quota" in str(e):
-            raise Exception("As energias estão muito intensas agora! Aguarde 60 segundos para os astros se alinharem.")
+            raise Exception("As energias estão muito intensas! Aguarde 60 segundos para os astros se alinharem novamente.")
         else:
-            raise Exception(f"Erro na comunicação com os astros: {e}")
+            raise Exception(f"Erro na comunicação com os astros. Detalhe técnico: {e} (Modelo tentado: {descobrir_modelo_seguro()})")
 
 def gerar_t1(d, img):
     p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas cruzando a mão, astrologia e numerologia. Conclua com uma bênção curta."
