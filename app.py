@@ -12,7 +12,7 @@ if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
 # --- 2. LAYOUT MÍSTICO ---
-st.set_page_config(page_title="Madame Janara v4.2", layout="centered")
+st.set_page_config(page_title="Madame Janara v4.3", layout="centered")
 
 st.markdown("""
     <style>
@@ -30,31 +30,44 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- 3. GESTÃO DE ESTADO (LGPD & RESET) ---
-# Se não houver um ID de formulário, criamos um. Mudar esse ID limpa todos os widgets.
 if 'form_id' not in st.session_state:
     st.session_state.form_id = 0
 if 'analise' not in st.session_state:
     st.session_state.analise = {"resumo": "", "padrao": "", "vip": "", "soulmate": "", "feita": False}
 
 def limpar_tudo():
-    st.session_state.form_id += 1 # Rotaciona a chave dos componentes
+    st.session_state.form_id += 1
     st.session_state.analise = {"resumo": "", "padrao": "", "vip": "", "soulmate": "", "feita": False}
     st.rerun()
 
-# --- 4. MOTOR DE IA ---
+# --- 4. MOTOR DE IA COM AUTODESCOBERTA ---
+def obter_melhor_modelo():
+    """Tenta encontrar um modelo Gemini disponível para evitar o erro 404."""
+    try:
+        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # Prioriza o flash 1.5
+        for m in modelos:
+            if 'gemini-1.5-flash' in m: return m
+        # Fallback para qualquer outro gemini disponível
+        return modelos[0]
+    except:
+        return 'models/gemini-1.5-flash'
+
 def gerar_profecia(imagem, d):
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    nome_modelo = obter_melhor_modelo()
+    model = genai.GenerativeModel(nome_modelo)
+    
     prompt = f"""
     Aja como Madame Janara, cigana mística. 
     DADOS: {d['nome']}, Nasc: {d['data_nasc']} às {d['horario']} em {d['cidade']}, Signo: {d['signo']}.
     PARCEIRO: {d['p_nome']}, Signo: {d['p_signo']}.
 
     Gere 4 partes separadas por '---'. NÃO escreva 'Parte 1' ou 'Bloco'.
-    1: Resumo místico (2 frases).
+    1: Resumo místico curto (2 frases).
     ---
-    2: Leitura das mãos e signo.
+    2: Leitura das mãos e signo solar.
     ---
-    3: Mapa Astral VIP (Finanças e Destino).
+    3: Mapa Astral VIP (Sucesso e Futuro).
     ---
     4: Sinastria Amorosa e segredo de vidas passadas.
     """
@@ -67,8 +80,6 @@ st.title("🔮 O Oráculo de Madame Janara")
 
 with st.container():
     st.markdown("<div class='main-box'>", unsafe_allow_html=True)
-    
-    # Usamos o form_id na chave (key) de cada widget para forçar o reset
     fid = st.session_state.form_id
     
     c1, c2 = st.columns(2)
@@ -104,7 +115,7 @@ with st.container():
                         st.session_state.analise["soulmate"] = partes[3] if len(partes) > 3 else ""
                         st.session_state.analise["feita"] = True
                     except Exception as e:
-                        st.error(f"Erro na leitura: {e}")
+                        st.error(f"Madame Janara teve uma visão nublada. Erro: {e}")
             else:
                 st.warning("Preencha Nome, Data, Signo e envie a Foto.")
     
@@ -115,6 +126,7 @@ with st.container():
 # --- 6. RESULTADOS ---
 res = st.session_state.analise
 if res["feita"]:
+    st.markdown("---")
     st.markdown("### ✨ O Brilho do Momento")
     st.info(res["resumo"])
     
@@ -122,7 +134,7 @@ if res["feita"]:
         st.write(res["padrao"])
         
     if res["vip"]:
-        st.markdown("<div class='vip-section'><h3>💎 Mapa Astral & Futuro</h3>", unsafe_allow_html=True)
+        st.markdown(f"<div class='vip-section'><h3>💎 Mapa Astral & Futuro de {nome}</h3>", unsafe_allow_html=True)
         if st.button("Revelar Futuro VIP"):
             st.write(res["vip"])
             tts = gTTS(text=res["vip"], lang='pt', tld='com.br')
@@ -132,14 +144,13 @@ if res["feita"]:
         st.markdown("</div>", unsafe_allow_html=True)
 
     if res["soulmate"] and p_nome:
-        st.markdown("<div class='soulmate-section'>", unsafe_allow_html=True)
-        st.subheader(f"🌹 Destino: {nome} & {p_nome}")
+        st.markdown(f"<div class='soulmate-section'><h3>🌹 Destino: {nome} & {p_nome}</h3>", unsafe_allow_html=True)
         email = st.text_input("E-mail para o guia completo:", key=f"mail_{fid}")
         if st.button("💖 Desbloquear Almas"):
             if email:
                 st.write(res["soulmate"])
-                msg = urllib.parse.quote(f"A Madame Janara revelou o futuro do meu relacionamento! ✨ https://madamejanara.streamlit.app")
-                st.markdown(f'<a href="https://wa.me/?text={msg}" target="_blank"><button style="width:100%; background:#25D366; color:white; border-radius:50px; border:none; padding:15px; font-weight:bold; cursor:pointer;">📲 WhatsApp</button></a>', unsafe_allow_html=True)
+                msg = urllib.parse.quote(f"A Madame Janara revelou o futuro do meu relacionamento com {p_nome}! ✨ Veja o seu: https://madamejanara.streamlit.app")
+                st.markdown(f'<a href="https://wa.me/?text={msg}" target="_blank"><button style="width:100%; background:#25D366; color:white; border-radius:50px; border:none; padding:15px; font-weight:bold; cursor:pointer;">📲 Compartilhar no WhatsApp</button></a>', unsafe_allow_html=True)
             else:
-                st.warning("Insira seu e-mail.")
+                st.warning("Insira seu e-mail para desbloquear a análise.")
         st.markdown("</div>", unsafe_allow_html=True)
