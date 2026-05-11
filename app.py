@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v6.1", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.2", layout="centered")
 
 st.markdown("""
     <style>
@@ -61,34 +61,35 @@ def get_model():
 def chamar_ia(prompt, imagem):
     try:
         model = genai.GenerativeModel(get_model())
-        config = genai.types.GenerationConfig(max_output_tokens=3000, temperature=0.85)
+        # AUMENTADO PARA O LIMITE MÁXIMO DO MODELO (8192) PARA NÃO CORTAR TEXTO
+        config = genai.types.GenerationConfig(max_output_tokens=8192, temperature=0.85)
         imagem.thumbnail((800, 800))
         return model.generate_content([prompt, imagem], generation_config=config).text
     except Exception as e:
-        # Tratamento amigável para o erro 429 de limite de cota
         if "429" in str(e) or "Quota" in str(e):
-            raise Exception("As energias estão muito intensas agora! Madame Janara está atendendo muitos viajantes. Por favor, aguarde 60 segundos e tente novamente.")
+            raise Exception("As energias estão muito intensas agora! Aguarde 60 segundos para os astros se alinharem.")
         else:
             raise Exception(f"As névoas estão densas. {e}")
 
+# PROMPTS COM "TRAVA DE CONCLUSÃO" PARA GARANTIR FINALIZAÇÃO
 def gerar_t1(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um 'aperitivo' cruzando a foto da mão, a astrologia e a numerologia para despertar curiosidade."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um aperitivo cruzando a mão, astrologia e numerologia. IMPORTANTE: Conclua seu raciocínio com uma bênção curta e direta."
     return chamar_ia(p, img)
 
 def gerar_t2(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda das linhas da Mão da foto. Detalhe Linha da Vida, Coração e Cabeça. Mínimo de 25 linhas."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda das linhas da Mão da foto (Vida, Coração e Cabeça). Mínimo de 25 linhas. IMPORTANTE: Certifique-se de terminar todo o seu raciocínio com uma bênção cigana de fechamento, garantindo que o texto não fique incompleto."
     return chamar_ia(p, img)
 
 def gerar_t3(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Mínimo de 30 linhas focando em personalidade oculta."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Mínimo de 30 linhas. Fale de personalidade oculta. IMPORTANTE: Planeje o tamanho do texto para que ele termine de forma natural, encerrando com uma bênção de proteção."
     return chamar_ia(p, img)
 
 def gerar_t4(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça uma previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça uma previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas de texto. IMPORTANTE: Você DEVE finalizar a análise por completo e terminar com uma bênção sobre prosperidade financeira."
     return chamar_ia(p, img)
 
 def gerar_t5(d, img):
-    p = f"Aja como Madame Janara. DADOS CONSULENTE: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça A Sinastria de Almas. Cruze astros, numerologia dos dois e as linhas da mão. Mínimo de 40 linhas."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça A Sinastria de Almas profunda. Cruze astros, numerologia e linhas da mão. Mínimo de 40 linhas. IMPORTANTE: Encerre todo o laudo perfeitamente com uma bênção amorosa final para o casal."
     return chamar_ia(p, img)
 
 # --- 6. INTERFACE ---
@@ -192,7 +193,7 @@ if st.session_state.t1_gratis:
     if st.session_state.btn_t4_num and p_nome and p_data:
         st.markdown("<div class='soulmate-box'>", unsafe_allow_html=True)
         st.subheader(f"🌹 Nível Master: A Fusão de Almas")
-        st.write(f"A mais complexa de todas as leituras. Cruza os astros, numerologia e karmas entre você e {p_nome}.")
+        st.write(f"A mais complexa de todas as leituras. Cruza astros, numerologia e karmas entre você e {p_nome}.")
         if st.button("💖 Desbloquear Sinastria Suprema", on_click=unlock_t5): pass
         if st.session_state.btn_t5_casal:
             if not st.session_state.t5_casal:
@@ -203,6 +204,8 @@ if st.session_state.t1_gratis:
                         st.error(f"{e}")
             if st.session_state.t5_casal:
                 st.write(st.session_state.t5_casal)
+                
+                # Áudio VIP Final
                 st.markdown("---")
                 st.success("Ouça a sua profecia finalizada:")
                 try:
