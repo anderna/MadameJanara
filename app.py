@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v6.2", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.3", layout="centered")
 
 st.markdown("""
     <style>
@@ -50,46 +50,37 @@ def unlock_t3(): st.session_state.btn_t3_mapa = True
 def unlock_t4(): st.session_state.btn_t4_num = True
 def unlock_t5(): st.session_state.btn_t5_casal = True
 
-# --- 5. MOTORES DE IA ESPECIALIZADOS ---
-def get_model():
-    try:
-        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        flash_models = [m for m in modelos if 'flash' in m]
-        return flash_models[0] if flash_models else modelos[0]
-    except: return "gemini-1.5-flash"
-
+# --- 5. MOTORES DE IA OTIMIZADOS (ZERO DESPERDÍCIO DE QUOTA) ---
 def chamar_ia(prompt, imagem):
     try:
-        model = genai.GenerativeModel(get_model())
-        # AUMENTADO PARA O LIMITE MÁXIMO DO MODELO (8192) PARA NÃO CORTAR TEXTO
-        config = genai.types.GenerationConfig(max_output_tokens=8192, temperature=0.85)
+        # Chamada direta e seca para economizar requisições
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        # 2048 tokens é o ponto de equilíbrio ideal: não corta o texto e não estoura a cota
+        config = genai.types.GenerationConfig(max_output_tokens=2048, temperature=0.85)
         imagem.thumbnail((800, 800))
         return model.generate_content([prompt, imagem], generation_config=config).text
     except Exception as e:
-        if "429" in str(e) or "Quota" in str(e):
-            raise Exception("As energias estão muito intensas agora! Aguarde 60 segundos para os astros se alinharem.")
-        else:
-            raise Exception(f"As névoas estão densas. {e}")
+        raise Exception(f"Erro na API do Google: {e}")
 
-# PROMPTS COM "TRAVA DE CONCLUSÃO" PARA GARANTIR FINALIZAÇÃO
+# Prompts refinados para garantir a densidade e o fechamento
 def gerar_t1(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um aperitivo cruzando a mão, astrologia e numerologia. IMPORTANTE: Conclua seu raciocínio com uma bênção curta e direta."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um aperitivo cruzando a mão, astrologia e numerologia. Conclua com uma bênção curta."
     return chamar_ia(p, img)
 
 def gerar_t2(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda das linhas da Mão da foto (Vida, Coração e Cabeça). Mínimo de 25 linhas. IMPORTANTE: Certifique-se de terminar todo o seu raciocínio com uma bênção cigana de fechamento, garantindo que o texto não fique incompleto."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura das linhas da Mão (Vida, Coração e Cabeça). Mínimo de 25 linhas. Termine com uma bênção cigana."
     return chamar_ia(p, img)
 
 def gerar_t3(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Mínimo de 30 linhas. Fale de personalidade oculta. IMPORTANTE: Planeje o tamanho do texto para que ele termine de forma natural, encerrando com uma bênção de proteção."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão. Mínimo de 30 linhas. Fale de personalidade oculta. Termine com uma bênção."
     return chamar_ia(p, img)
 
 def gerar_t4(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça uma previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas de texto. IMPORTANTE: Você DEVE finalizar a análise por completo e terminar com uma bênção sobre prosperidade financeira."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas focando em finanças. Finalize com bênção de prosperidade."
     return chamar_ia(p, img)
 
 def gerar_t5(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça A Sinastria de Almas profunda. Cruze astros, numerologia e linhas da mão. Mínimo de 40 linhas. IMPORTANTE: Encerre todo o laudo perfeitamente com uma bênção amorosa final para o casal."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça Sinastria de Almas profunda. Cruze astros, numerologia e mãos. Mínimo de 40 linhas. Encerre com uma bênção amorosa para o casal."
     return chamar_ia(p, img)
 
 # --- 6. INTERFACE ---
@@ -132,7 +123,7 @@ with st.container():
                     
                     st.session_state.t1_gratis = gerar_t1(d, img)
                 except Exception as e:
-                    st.error(f"{e}")
+                    st.error(f"Atenção: {e}")
         else:
             st.warning("Preencha Nome, Data, Signo e envie a Foto.")
     st.markdown("</div>", unsafe_allow_html=True)
@@ -153,7 +144,7 @@ if st.session_state.t1_gratis:
                 try:
                     st.session_state.t2_mao = gerar_t2(st.session_state.dados_cache, st.session_state.imagem_cache)
                 except Exception as e:
-                    st.error(f"{e}")
+                    st.error(f"Erro: {e}")
         if st.session_state.t2_mao: st.write(st.session_state.t2_mao)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -169,7 +160,7 @@ if st.session_state.t1_gratis:
                     try:
                         st.session_state.t3_mapa = gerar_t3(st.session_state.dados_cache, st.session_state.imagem_cache)
                     except Exception as e:
-                        st.error(f"{e}")
+                        st.error(f"Erro: {e}")
             if st.session_state.t3_mapa: st.write(st.session_state.t3_mapa)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -185,7 +176,7 @@ if st.session_state.t1_gratis:
                     try:
                         st.session_state.t4_num = gerar_t4(st.session_state.dados_cache, st.session_state.imagem_cache)
                     except Exception as e:
-                        st.error(f"{e}")
+                        st.error(f"Erro: {e}")
             if st.session_state.t4_num: st.write(st.session_state.t4_num)
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -201,11 +192,9 @@ if st.session_state.t1_gratis:
                     try:
                         st.session_state.t5_casal = gerar_t5(st.session_state.dados_cache, st.session_state.imagem_cache)
                     except Exception as e:
-                        st.error(f"{e}")
+                        st.error(f"Erro: {e}")
             if st.session_state.t5_casal:
                 st.write(st.session_state.t5_casal)
-                
-                # Áudio VIP Final
                 st.markdown("---")
                 st.success("Ouça a sua profecia finalizada:")
                 try:
