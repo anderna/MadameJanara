@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v5.1", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.0", layout="centered")
 
 st.markdown("""
     <style>
@@ -30,135 +30,169 @@ st.markdown("""
                     url('https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=2094&auto=format&fit=crop');
         background-size: cover; background-attachment: fixed; color: #f3e5ab;
     }
-    .main-box { background: rgba(10, 8, 5, 0.98); padding: 30px; border-radius: 25px; border: 1px solid #d4af37; }
-    .stButton>button { background: #d4af37 !important; color: black !important; font-weight: 900; border-radius: 50px; width: 100%; height: 3.5em; transition: 0.3s; }
-    .stButton>button:hover { background: #fff !important; box-shadow: 0 0 20px #d4af37; }
-    .vip-section { border: 2px solid #ffd700; background: rgba(212, 175, 55, 0.1); padding: 25px; border-radius: 15px; margin-top: 20px; }
-    .soulmate-section { border: 2px solid #ff4d4d; background: rgba(74, 26, 26, 0.3); padding: 25px; border-radius: 15px; margin-top: 20px; }
-    h1, h2, h3 { color: #d4af37 !important; text-align: center; }
+    .main-box { background: rgba(10, 8, 5, 0.98); padding: 30px; border-radius: 25px; border: 1px solid #d4af37; margin-bottom: 20px;}
+    .tier-box { background: rgba(212, 175, 55, 0.05); padding: 25px; border-radius: 15px; border-left: 4px solid #d4af37; margin-top: 15px; }
+    .soulmate-box { background: rgba(74, 26, 26, 0.2); padding: 25px; border-radius: 15px; border-left: 4px solid #ff4d4d; margin-top: 15px; }
+    .stButton>button { background: linear-gradient(45deg, #d4af37, #aa8a2e) !important; color: black !important; font-weight: 900; border-radius: 50px; width: 100%; height: 3.5em; transition: 0.3s; border: none; }
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 0 15px #d4af37; }
+    h1, h2, h3 { color: #d4af37 !important; text-align: center; font-family: 'Playfair Display', serif; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. GESTÃO DE ESTADO ---
-if 'analise' not in st.session_state:
-    st.session_state.analise = {"resumo": "", "padrao": "", "vip": "", "soulmate": "", "feita": False}
+# --- 4. GESTÃO DE ESTADO (LAZY LOADING DE TIERS) ---
+tiers = ['t1_gratis', 't2_mao', 't3_mapa', 't4_num', 't5_casal']
+for t in tiers:
+    if t not in st.session_state: st.session_state[t] = None
+    if f"btn_{t}" not in st.session_state: st.session_state[f"btn_{t}"] = False
 
-# --- 5. MOTOR DE IA (VARREDURA INDESTRUTÍVEL) ---
-def gerar_profecia(imagem, d, num_destino):
-    modelos_para_testar = []
+# Callbacks para destravar botões sem resetar a tela
+def unlock_t2(): st.session_state.btn_t2_mao = True
+def unlock_t3(): st.session_state.btn_t3_mapa = True
+def unlock_t4(): st.session_state.btn_t4_num = True
+def unlock_t5(): st.session_state.btn_t5_casal = True
+
+# --- 5. MOTORES DE IA ESPECIALIZADOS (UMA CHAMADA POR NÍVEL) ---
+def get_model():
     try:
-        todos_modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        flash_models = [m for m in todos_modelos if 'flash' in m]
-        outros_modelos = [m for m in todos_modelos if 'flash' not in m]
-        modelos_para_testar = flash_models + outros_modelos
-    except:
-        modelos_para_testar = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-1.5-pro"]
+        modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        flash_models = [m for m in modelos if 'flash' in m]
+        return flash_models[0] if flash_models else modelos[0]
+    except: return "gemini-1.5-flash"
 
-    prompt = f"""
-    Aja como Madame Janara, a maior autoridade em Quiromancia, Astrologia e Numerologia.
-    DADOS: {d['nome']}, Nasc: {d['data_nasc']} {d['horario']} em {d['cidade']}.
-    SIGNO: {d['signo']} | NUMEROLOGIA: {num_destino}
-    PARCEIRO: {d['p_nome']} (Signo: {d['p_signo']})
-
-    Gere 4 partes separadas por '---'. NÃO use títulos como 'Bloco' ou 'Nível'.
-
-    1 (TEASER): Resumo místico curto de 2 frases.
-    ---
-    2 (GRATUITO): Análise qualitativa cruzando as linhas da mão com o signo solar. Desenvolva um texto denso de pelo menos 15 linhas.
-    ---
-    3 (VIP): A Triangulação: Numerologia {num_destino}, Mapa Astral e Quiromancia. Desenvolva pelo menos 35 linhas focando em carreira, finanças e os próximos 12 meses.
-    ---
-    4 (SOULMATE): Sinastria mística entre {d['nome']} e {d['p_nome']}. Desenvolva pelo menos 35 linhas. Revele conexões de vidas passadas e dê conselhos práticos para o casal.
-    """
-    
+def chamar_ia(prompt, imagem):
+    model = genai.GenerativeModel(get_model())
+    config = genai.types.GenerationConfig(max_output_tokens=3000, temperature=0.85)
     imagem.thumbnail((800, 800))
-    config = genai.types.GenerationConfig(max_output_tokens=4000, temperature=0.8)
-    
-    erro_final = None
-    for m_name in modelos_para_testar:
-        try:
-            model = genai.GenerativeModel(m_name)
-            response = model.generate_content([prompt, imagem], generation_config=config)
-            return response.text
-        except Exception as e:
-            erro_final = e
-            continue 
-            
-    raise Exception(f"Falha de comunicação com os astros. Detalhe técnico: {erro_final}")
+    return model.generate_content([prompt, imagem], generation_config=config).text
+
+# Funções geradoras de Prompts Específicos
+def gerar_t1(d, img):
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas. Dê um 'aperitivo' cruzando a foto da mão, a astrologia e a numerologia para despertar forte curiosidade para análises mais profundas."
+    return chamar_ia(p, img)
+
+def gerar_t2(d, img):
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda e exclusiva das linhas da Mão da foto. Detalhe Linha da Vida, Coração e Cabeça. Mínimo de 25 linhas de texto denso."
+    return chamar_ia(p, img)
+
+def gerar_t3(d, img):
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Simule posições de Lua e Ascendente com base no signo solar. Mínimo de 30 linhas focando em personalidade oculta e forças cósmicas."
+    return chamar_ia(p, img)
+
+def gerar_t4(d, img):
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Nasc: {d['data_nasc']}, Numerologia de Destino: {d['num_d']}. Faça uma previsão de 12 meses. Cruze a numerologia {d['num_d']} com o que vê na mão e trace a rota de carreira e sucesso financeiro. Mínimo de 35 linhas."
+    return chamar_ia(p, img)
+
+def gerar_t5(d, img):
+    p = f"Aja como Madame Janara. DADOS CONSULENTE: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} (Nasc: {d['p_data']}, Signo: {d['p_signo']}, Num: {d['p_num']}). Faça a leitura mais profunda de todas: A Sinastria de Almas. Cruze os astros, a numerologia dos dois e as linhas da mão. Revele karmas de vidas passadas e dê conselhos práticos. Mínimo de 40 linhas."
+    return chamar_ia(p, img)
 
 # --- 6. INTERFACE ---
-st.title("🔮 Oráculo Supremo de Madame Janara")
+st.title("🔮 O Grande Oráculo de Madame Janara")
 
 with st.container():
     st.markdown("<div class='main-box'>", unsafe_allow_html=True)
-    
     c1, c2 = st.columns(2)
     with c1:
-        nome = st.text_input("Nome completo:", placeholder="O nome revela a vibração...")
+        nome = st.text_input("Seu Nome:")
         data_nasc = st.date_input("Nascimento:", value=None, min_value=date(1900, 1, 1), format="DD/MM/YYYY")
-        cidade = st.text_input("Cidade de Origem:", placeholder="Onde as estrelas o viram nascer?")
     with c2:
-        signo = st.selectbox("Signo Solar:", ["Escolha...", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"])
-        horario = st.time_input("Hora do Nascimento:", value=None)
+        signo = st.selectbox("Seu Signo:", ["Escolha...", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"])
+        horario = st.time_input("Hora de Nascimento (Opcional):", value=None)
     
     num_exibido = calcular_numerologia(data_nasc) if data_nasc else "..."
-    st.info(f"🔢 Vibração Numerológica: **{num_exibido}**")
+    st.info(f"🔢 Sua Vibração: **{num_exibido}**")
 
     st.markdown("---")
-    st.subheader("❤️ Conexão de Almas (Opcional)")
+    st.subheader("❤️ Aprofundamento Amoroso (Opcional)")
     p_nome = st.text_input("Nome do Parceiro(a):")
-    p_signo = st.selectbox("Signo dele(a):", ["Não informado", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"])
+    c3, c4 = st.columns(2)
+    with c3:
+        p_data = st.date_input("Nasc. Parceiro(a):", value=None, min_value=date(1900, 1, 1), format="DD/MM/YYYY")
+    with c4:
+        p_signo = st.selectbox("Signo dele(a):", ["Não informado", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"])
+    
+    p_num = calcular_numerologia(p_data) if p_data else "..."
 
     uploaded_file = st.file_uploader("Sua palma esquerda (clara e iluminada)...", type=["jpg", "jpeg", "png"])
 
-    if st.button("🌟 INVOCAR O GRANDE ORÁCULO"):
+    if st.button("✨ DESPERTAR O ORÁCULO (Gratuito)"):
         if uploaded_file and nome and data_nasc and signo != "Escolha...":
-            with st.spinner("Madame Janara tece as teias do tempo..."):
+            with st.spinner("Madame Janara tem os primeiros vislumbres..."):
                 try:
-                    image = Image.open(uploaded_file)
-                    d = {'nome': nome, 'data_nasc': data_nasc, 'horario': horario, 'cidade': cidade, 'signo': signo, 'p_nome': p_nome, 'p_signo': p_signo}
-                    res = gerar_profecia(image, d, num_exibido)
-                    partes = [p.strip() for p in res.split('---') if p.strip()]
+                    img = Image.open(uploaded_file)
+                    st.session_state.imagem_cache = img # Salva imagem para não pedir upload de novo
+                    d = {'nome': nome, 'data_nasc': data_nasc, 'signo': signo, 'num_d': num_exibido, 'p_nome': p_nome, 'p_data': p_data, 'p_signo': p_signo, 'p_num': p_num}
+                    st.session_state.dados_cache = d
                     
-                    st.session_state.analise["resumo"] = partes[0] if len(partes) > 0 else ""
-                    st.session_state.analise["padrao"] = partes[1] if len(partes) > 1 else ""
-                    st.session_state.analise["vip"] = partes[2] if len(partes) > 2 else ""
-                    st.session_state.analise["soulmate"] = partes[3] if len(partes) > 3 else ""
-                    st.session_state.analise["feita"] = True
-                    st.rerun() 
+                    st.session_state.t1_gratis = gerar_t1(d, img)
                 except Exception as e:
-                    st.error(f"Madame Janara teve uma visão nublada. {e}")
+                    st.error(f"Erro na visão: {e}")
         else:
-            st.warning("Preencha Nome, Data, Signo e envie a Foto da mão.")
+            st.warning("Preencha Nome, Data, Signo e envie a Foto.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- 7. RESULTADOS ---
-res = st.session_state.analise
-if res["feita"]:
-    st.markdown("---")
-    st.markdown(f"### ✨ O Brilho do Momento para {nome}")
-    st.info(res["resumo"])
-    
-    with st.expander("🔓 Leitura das Mãos (Análise Holística)"):
-        st.write(res["padrao"])
-        
-    if res["vip"]:
-        st.markdown(f"<div class='vip-section'><h3>💎 Triangulação: Numerologia & Destino VIP</h3>", unsafe_allow_html=True)
-        if st.button("Revelar Laudo de Destino Completo"):
-            st.write(res["vip"])
-            tts = gTTS(text=res["vip"], lang='pt', tld='com.br')
-            audio_fp = io.BytesIO()
-            tts.write_to_fp(audio_fp)
-            st.audio(audio_fp, format='audio/mp3')
+# --- 7. EXIBIÇÃO DA ESCADA DE VALOR ---
+if st.session_state.t1_gratis:
+    st.markdown("### ✨ O Despertar (Análise Básica)")
+    st.info(st.session_state.t1_gratis)
+
+    # TIER 2: Leitura de Mão
+    st.markdown("<div class='tier-box'>", unsafe_allow_html=True)
+    st.subheader("1️⃣ Nível I: O Caminho das Mãos")
+    st.write("Uma leitura profunda apenas de suas linhas (Vida, Cabeça e Coração).")
+    if st.button("🔓 Desbloquear Leitura das Mãos", on_click=unlock_t2): pass
+    if st.session_state.btn_t2_mao:
+        if not st.session_state.t2_mao:
+            with st.spinner("Lendo as linhas sagradas..."):
+                st.session_state.t2_mao = gerar_t2(st.session_state.dados_cache, st.session_state.imagem_cache)
+        st.write(st.session_state.t2_mao)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # TIER 3: Mapa Astral + Mão
+    if st.session_state.btn_t2_mao:
+        st.markdown("<div class='tier-box'>", unsafe_allow_html=True)
+        st.subheader("2️⃣ Nível II: O Mapa das Estrelas")
+        st.write("O cruzamento sagrado entre o seu Mapa Astral detalhado e a Quiromancia.")
+        if st.button("🔓 Desbloquear Mapa Astral + Mãos", on_click=unlock_t3): pass
+        if st.session_state.btn_t3_mapa:
+            if not st.session_state.t3_mapa:
+                with st.spinner("Mapeando os astros..."):
+                    st.session_state.t3_mapa = gerar_t3(st.session_state.dados_cache, st.session_state.imagem_cache)
+            st.write(st.session_state.t3_mapa)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    if res["soulmate"] and p_nome:
-        st.markdown(f"<div class='soulmate-section'><h3>🌹 Sinastria de Almas: {nome} & {p_nome}</h3>", unsafe_allow_html=True)
-        email = st.text_input("E-mail para o guia completo:")
-        if st.button("💖 Revelar Segredos do Casal"):
-            if email:
-                st.write(res["soulmate"])
-                msg = urllib.parse.quote(f"A Madame Janara revelou nosso futuro! ✨ Confira: https://madamejanara.streamlit.app")
-                st.markdown(f'<a href="https://wa.me/?text={msg}" target="_blank"><button style="width:100%; background:#25D366; color:white; border-radius:50px; border:none; padding:15px; font-weight:bold; cursor:pointer;">📲 Compartilhar no WhatsApp</button></a>', unsafe_allow_html=True)
-            else:
-                st.warning("Insira o seu e-mail para continuar.")
+    # TIER 4: Numerologia + Previsão 12 Meses
+    if st.session_state.btn_t3_mapa:
+        st.markdown("<div class='tier-box'>", unsafe_allow_html=True)
+        st.subheader("3️⃣ Nível III: A Coroa do Destino")
+        st.write("Inclui a vibração da sua Numerologia e revela os próximos 12 meses de carreira e finanças.")
+        if st.button("💎 Desbloquear Previsão Completa VIP", on_click=unlock_t4): pass
+        if st.session_state.btn_t4_num:
+            if not st.session_state.t4_num:
+                with st.spinner("Calculando o destino financeiro..."):
+                    st.session_state.t4_num = gerar_t4(st.session_state.dados_cache, st.session_state.imagem_cache)
+            st.write(st.session_state.t4_num)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # TIER 5: Soulmate
+    if st.session_state.btn_t4_num and p_nome and p_data:
+        st.markdown("<div class='soulmate-box'>", unsafe_allow_html=True)
+        st.subheader(f"🌹 Nível Master: A Fusão de Almas")
+        st.write(f"A mais complexa de todas as leituras. Cruza os astros, numerologia e karmas entre você e {p_nome}.")
+        if st.button("💖 Desbloquear Sinastria Suprema", on_click=unlock_t5): pass
+        if st.session_state.btn_t5_casal:
+            if not st.session_state.t5_casal:
+                with st.spinner("Conectando as duas almas..."):
+                    st.session_state.t5_casal = gerar_t5(st.session_state.dados_cache, st.session_state.imagem_cache)
+            st.write(st.session_state.t5_casal)
+            
+            # Áudio VIP Final
+            st.markdown("---")
+            st.success("Ouça a sua profecia finalizada:")
+            try:
+                tts = gTTS(text=st.session_state.t5_casal, lang='pt', tld='com.br')
+                audio_fp = io.BytesIO()
+                tts.write_to_fp(audio_fp)
+                st.audio(audio_fp, format='audio/mp3')
+            except: pass
+        st.markdown("</div>", unsafe_allow_html=True)
