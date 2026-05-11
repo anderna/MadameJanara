@@ -21,7 +21,7 @@ def calcular_numerologia(data):
     return soma
 
 # --- 3. LAYOUT E ESTÉTICA ---
-st.set_page_config(page_title="Madame Janara v6.6", layout="centered")
+st.set_page_config(page_title="Madame Janara v6.8", layout="centered")
 
 st.markdown("""
     <style>
@@ -50,57 +50,61 @@ def unlock_t3(): st.session_state.btn_t3_mapa = True
 def unlock_t4(): st.session_state.btn_t4_num = True
 def unlock_t5(): st.session_state.btn_t5_casal = True
 
-# O SEGREDO ESTÁ AQUI: Descobre o modelo disponível e guarda na memória por 1 hora
-# Isso impede o erro 404 (porque usa o nome oficial) e impede o erro 429 (porque só consulta a lista 1 vez)
 @st.cache_data(ttl=3600)
 def descobrir_modelo_seguro():
     try:
         modelos_disponiveis = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # Tenta encontrar o Flash primeiro
         for m in modelos_disponiveis:
-            if 'gemini-1.5-flash' in m:
-                return m
-        # Se não achar, tenta o Pro
-        for m in modelos_disponiveis:
-            if 'gemini-1.5-pro' in m:
-                return m
-        # Se falhar tudo, pega o primeiro que suportar geração e visão
+            if 'gemini-1.5-flash' in m: return m
         return modelos_disponiveis[0]
     except:
-        return "gemini-1.5-flash" # Fallback extremo
+        return "gemini-1.5-flash"
 
 # --- 5. MOTOR DE IA OTIMIZADO ---
 def chamar_ia(prompt, imagem):
     try:
         nome_modelo = descobrir_modelo_seguro()
         model = genai.GenerativeModel(nome_modelo)
-        config = genai.types.GenerationConfig(max_output_tokens=2048, temperature=0.85)
+        
+        config = genai.types.GenerationConfig(max_output_tokens=4096, temperature=0.85)
+        
+        safety = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+        ]
+        
         imagem.thumbnail((800, 800))
-        return model.generate_content([prompt, imagem], generation_config=config).text
+        
+        prompt_seguro = prompt + "\n\nDIRETRIZ RESTRITA: Nunca mencione doenças ou saúde física. Escreva o texto de forma contínua e termine com uma bênção. Você DEVE entregar exatamente a quantidade de parágrafos solicitada."
+
+        return model.generate_content([prompt_seguro, imagem], generation_config=config, safety_settings=safety).text
     except Exception as e:
         if "429" in str(e) or "Quota" in str(e):
             raise Exception("As energias estão muito intensas! Aguarde 60 segundos para os astros se alinharem novamente.")
         else:
-            raise Exception(f"Erro na comunicação com os astros. Detalhe técnico: {e} (Modelo tentado: {descobrir_modelo_seguro()})")
+            raise Exception(f"Houve um distúrbio na conexão cósmica. Detalhe: {e}")
 
+# OS PROMPTS OTIMIZADOS (Focados em Parágrafos em vez de Linhas)
 def gerar_t1(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico de 10 linhas cruzando a mão, astrologia e numerologia. Conclua com uma bênção curta."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}, Numerologia: {d['num_d']}. Crie um resumo místico EXATAMENTE de 5 frases bem estruturadas (um único parágrafo conciso). Dê um aperitivo cruzando astrologia, numerologia e um detalhe da mão da foto. Termine a 5ª frase com uma bênção curta."
     return chamar_ia(p, img)
 
 def gerar_t2(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda das linhas da Mão da foto. Mínimo de 25 linhas. Termine com uma bênção cigana."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}. Faça uma leitura profunda das linhas da Mão da foto. Escreva EXATAMENTE 4 parágrafos longos e detalhados. Fale da linha da vida (vitalidade e ação), coração (paixões) e cabeça (intelecto). Termine o último parágrafo perfeitamente com uma bênção cigana."
     return chamar_ia(p, img)
 
 def gerar_t3(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as linhas da Mão da foto. Mínimo de 30 linhas. Termine com uma bênção."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Signo: {d['signo']}. Cruze o Mapa Astral com as marcas da Mão da foto. Escreva EXATAMENTE 5 parágrafos médios. Fale de forças planetárias invisíveis e da personalidade oculta. Termine perfeitamente com uma bênção."
     return chamar_ia(p, img)
 
 def gerar_t4(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça uma previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Mínimo de 35 linhas focando em finanças. Finalize com bênção."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']}, Numerologia: {d['num_d']}. Faça uma previsão de 12 meses cruzando a numerologia {d['num_d']} com a mão. Escreva EXATAMENTE 5 parágrafos longos, com foco estrito em sucessos profissionais, decisões de carreira e finanças. Finalize com bênção de prosperidade."
     return chamar_ia(p, img)
 
 def gerar_t5(d, img):
-    p = f"Aja como Madame Janara. DADOS: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça A Sinastria de Almas profunda. Cruze astros, numerologia e linhas da mão. Mínimo de 40 linhas. Encerre perfeitamente com uma bênção para o casal."
+    p = f"Aja como Madame Janara. DADOS: {d['nome']} ({d['signo']}, Num: {d['num_d']}). PARCEIRO: {d['p_nome']} ({d['p_signo']}, Num: {d['p_num']}). Faça A Sinastria de Almas profunda. Cruze astros, numerologia e linhas da mão. Escreva EXATAMENTE 6 parágrafos ricos em detalhes místicos. Encerre o texto perfeitamente com uma bênção amorosa."
     return chamar_ia(p, img)
 
 # --- 6. INTERFACE ---
