@@ -20,8 +20,8 @@ def calcular_numerologia(data):
         soma = sum(int(n) for n in str(soma))
     return soma
 
-# --- 3. ESTÉTICA E LAYOUT ---
-st.set_page_config(page_title="Madame Janara v4.7", layout="centered")
+# --- 3. LAYOUT E ESTÉTICA ---
+st.set_page_config(page_title="Madame Janara v5.0", layout="centered")
 
 st.markdown("""
     <style>
@@ -38,102 +38,92 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. GESTÃO DE ESTADO ---
-if 'form_id' not in st.session_state: st.session_state.form_id = 0
-if 'analise' not in st.session_state: st.session_state.analise = {"resumo": "", "padrao": "", "vip": "", "soulmate": "", "feita": False}
-
-def limpar_tudo():
-    st.session_state.form_id += 1
+# --- 4. GESTÃO DE ESTADO (PERSISTENTE ATÉ O REFRESH) ---
+if 'analise' not in st.session_state:
     st.session_state.analise = {"resumo": "", "padrao": "", "vip": "", "soulmate": "", "feita": False}
-    st.rerun()
 
-# --- 5. MOTOR DE IA (ESTRATÉGIA DE FALLBACK MULTI-MODELO) ---
+# --- 5. MOTOR DE IA (ESTRATÉGIA DE CONEXÃO ESTÁVEL) ---
 def gerar_profecia(imagem, d, num_destino):
-    # Tentaremos estes nomes de modelos em ordem até um funcionar
-    model_names = ["gemini-1.5-flash", "models/gemini-1.5-flash", "gemini-1.5-flash-latest"]
+    # Usando o nome mais estável e compatível do modelo
+    model = genai.GenerativeModel("gemini-1.5-flash")
     
     prompt = f"""
-    Aja como Madame Janara, autoridade em Quiromancia, Astrologia e Numerologia.
+    Aja como Madame Janara, a maior autoridade em Quiromancia, Astrologia e Numerologia.
     DADOS: {d['nome']}, Nasc: {d['data_nasc']} {d['horario']} em {d['cidade']}.
-    SIGNO SOLAR: {d['signo']} | NÚMERO DE DESTINO: {num_destino}
-    DADOS PARCEIRO: {d['p_nome']} (Signo: {d['p_signo']})
+    SIGNO: {d['signo']} | NUMEROLOGIA: {num_destino}
+    PARCEIRO: {d['p_nome']} (Signo: {d['p_signo']})
 
     Gere 4 partes separadas por '---'. NÃO use títulos como 'Bloco' ou 'Nível'.
 
-    1 (TEASER): Resumo místico de 2 frases.
+    1 (TEASER): Resumo místico curto de 2 frases.
     ---
-    2 (PADRÃO): Mínimo 15 linhas. Cruzamento entre as linhas da mão e o signo {d['signo']}.
+    2 (GRATUITO): Análise qualitativa cruzando as linhas da mão com o signo solar. 
+    Desenvolva um texto denso de pelo menos 12 linhas. Fale sobre personalidade e essência.
     ---
-    3 (VIP): Mínimo 40 linhas. A Triangulação: Numerologia {num_destino}, Mapa Astral e Quiromancia. 
-    Analise finanças, carreira e os próximos 12 meses com extrema profundidade qualitativa.
+    3 (VIP): A Grande Triangulação: Numerologia {num_destino}, Mapa Astral e Quiromancia. 
+    Desenvolva uma análise profunda de pelo menos 35 linhas. 
+    Cruze o número de destino com a carreira e finanças. Detalhe os próximos 12 meses.
     ---
-    4 (SOULMATE): Mínimo 35 linhas. Sinastria entre {d['nome']} e {d['p_nome']}. 
-    Revele um karma de vida passada e dê 3 recomendações ritualísticas detalhadas para o casal.
+    4 (SOULMATE): Sinastria mística entre {d['nome']} e {d['p_nome']}. 
+    Desenvolva um texto longo de pelo menos 35 linhas. 
+    Revele conexões de vidas passadas e dê conselhos práticos para o casal.
     """
     
     imagem.thumbnail((800, 800))
-    config = genai.types.GenerationConfig(max_output_tokens=4096, temperature=0.85)
+    config = genai.types.GenerationConfig(max_output_tokens=4000, temperature=0.8)
     
-    ultima_excecao = None
-    for m_name in model_names:
-        try:
-            model = genai.GenerativeModel(model_name=m_name)
-            response = model.generate_content([prompt, imagem], generation_config=config)
-            return response.text
-        except Exception as e:
-            ultima_excecao = e
-            continue # Tenta o próximo nome na lista
-            
-    raise ultima_excecao
+    try:
+        response = model.generate_content([prompt, imagem], generation_config=config)
+        return response.text
+    except Exception as e:
+        # Se falhar, tentamos o caminho completo como último recurso
+        model_retry = genai.GenerativeModel("models/gemini-1.5-flash")
+        response = model_retry.generate_content([prompt, imagem], generation_config=config)
+        return response.text
 
 # --- 6. INTERFACE ---
 st.title("🔮 Oráculo Supremo de Madame Janara")
 
 with st.container():
     st.markdown("<div class='main-box'>", unsafe_allow_html=True)
-    fid = st.session_state.form_id
     
     c1, c2 = st.columns(2)
     with c1:
-        nome = st.text_input("Nome completo:", placeholder="O nome revela a vibração...", key=f"n_{fid}")
-        data_nasc = st.date_input("Nascimento:", value=None, min_value=date(1900, 1, 1), format="DD/MM/YYYY", key=f"d_{fid}")
-        cidade = st.text_input("Cidade de Origem:", placeholder="Onde as estrelas o viram nascer?", key=f"c_{fid}")
+        nome = st.text_input("Nome completo:", placeholder="O nome revela a vibração...")
+        data_nasc = st.date_input("Nascimento:", value=None, min_value=date(1900, 1, 1), format="DD/MM/YYYY")
+        cidade = st.text_input("Cidade de Origem:", placeholder="Onde as estrelas o viram nascer?")
     with c2:
-        signo = st.selectbox("Signo Solar:", ["Escolha...", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"], key=f"s_{fid}")
-        horario = st.time_input("Hora do Nascimento:", value=None, key=f"h_{fid}")
+        signo = st.selectbox("Signo Solar:", ["Escolha...", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"])
+        horario = st.time_input("Hora do Nascimento:", value=None)
     
     num_exibido = calcular_numerologia(data_nasc) if data_nasc else "..."
-    st.info(f"🔢 Vibração Numerológica Calculada: **{num_exibido}**")
+    st.info(f"🔢 Vibração Numerológica: **{num_exibido}**")
 
     st.markdown("---")
     st.subheader("❤️ Conexão de Almas (Opcional)")
-    p_nome = st.text_input("Nome do Parceiro(a):", key=f"pn_{fid}")
-    p_signo = st.selectbox("Signo dele(a):", ["Não informado", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"], key=f"ps_{fid}")
+    p_nome = st.text_input("Nome do Parceiro(a):")
+    p_signo = st.selectbox("Signo dele(a):", ["Não informado", "Áries", "Touro", "Gêmeos", "Câncer", "Leão", "Virgem", "Libra", "Escorpião", "Sagitário", "Capricórnio", "Aquário", "Peixes"])
 
-    uploaded_file = st.file_uploader("Sua palma esquerda (clara e iluminada)...", type=["jpg", "jpeg", "png"], key=f"f_{fid}")
+    uploaded_file = st.file_uploader("Sua palma esquerda (clara e iluminada)...", type=["jpg", "jpeg", "png"])
 
-    col_btn1, col_btn2 = st.columns([3, 1])
-    with col_btn1:
-        if st.button("🌟 INVOCAR O GRANDE ORÁCULO"):
-            if uploaded_file and nome and data_nasc and signo != "Escolha...":
-                with st.spinner("Madame Janara tece as teias do tempo..."):
-                    try:
-                        image = Image.open(uploaded_file)
-                        d = {'nome': nome, 'data_nasc': data_nasc, 'horario': horario, 'cidade': cidade, 'signo': signo, 'p_nome': p_nome, 'p_signo': p_signo}
-                        res = gerar_profecia(image, d, num_exibido)
-                        partes = [p.strip() for p in res.split('---') if p.strip()]
-                        
-                        st.session_state.analise["resumo"] = partes[0] if len(partes) > 0 else ""
-                        st.session_state.analise["padrao"] = partes[1] if len(partes) > 1 else ""
-                        st.session_state.analise["vip"] = partes[2] if len(partes) > 2 else ""
-                        st.session_state.analise["soulmate"] = partes[3] if len(partes) > 3 else ""
-                        st.session_state.analise["feita"] = True
-                    except Exception as e:
-                        st.error(f"As névoas estão densas. Erro técnico: {e}")
-            else:
-                st.warning("Preencha Nome, Data, Signo e envie a Foto.")
-    with col_btn2:
-        st.button("🗑️ Limpar", on_click=limpar_tudo)
+    if st.button("🌟 INVOCAR O GRANDE ORÁCULO"):
+        if uploaded_file and nome and data_nasc and signo != "Escolha...":
+            with st.spinner("Madame Janara tece as teias do tempo..."):
+                try:
+                    image = Image.open(uploaded_file)
+                    d = {'nome': nome, 'data_nasc': data_nasc, 'horario': horario, 'cidade': cidade, 'signo': signo, 'p_nome': p_nome, 'p_signo': p_signo}
+                    res = gerar_profecia(image, d, num_exibido)
+                    partes = [p.strip() for p in res.split('---') if p.strip()]
+                    
+                    st.session_state.analise["resumo"] = partes[0] if len(partes) > 0 else ""
+                    st.session_state.analise["padrao"] = partes[1] if len(partes) > 1 else ""
+                    st.session_state.analise["vip"] = partes[2] if len(partes) > 2 else ""
+                    st.session_state.analise["soulmate"] = partes[3] if len(partes) > 3 else ""
+                    st.session_state.analise["feita"] = True
+                except Exception as e:
+                    st.error(f"Madame Janara teve uma visão nublada. Erro técnico: {e}")
+        else:
+            st.warning("Preencha Nome, Data, Signo e envie a Foto.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- 7. RESULTADOS ---
@@ -143,11 +133,11 @@ if res["feita"]:
     st.markdown(f"### ✨ O Brilho do Momento para {nome}")
     st.info(res["resumo"])
     
-    with st.expander("🔓 Leitura das Mãos (Análise Quirológica)"):
+    with st.expander("🔓 Leitura das Mãos (Análise Holística)"):
         st.write(res["padrao"])
         
     if res["vip"]:
-        st.markdown(f"<div class='vip-section'><h3>💎 A Triangulação: Numerologia & Destino VIP</h3>", unsafe_allow_html=True)
+        st.markdown(f"<div class='vip-section'><h3>💎 Triangulação: Numerologia & Destino VIP</h3>", unsafe_allow_html=True)
         if st.button("Revelar Laudo de Destino Completo"):
             st.write(res["vip"])
             tts = gTTS(text=res["vip"], lang='pt', tld='com.br')
@@ -158,11 +148,11 @@ if res["feita"]:
 
     if res["soulmate"] and p_nome:
         st.markdown(f"<div class='soulmate-section'><h3>🌹 Sinastria de Almas: {nome} & {p_nome}</h3>", unsafe_allow_html=True)
-        email = st.text_input("E-mail para o guia completo:", key=f"m_{fid}")
+        email = st.text_input("E-mail para o guia completo:")
         if st.button("💖 Revelar Segredos do Casal"):
             if email:
                 st.write(res["soulmate"])
-                msg = urllib.parse.quote(f"Estou chocado com a análise holística da Madame Janara! ✨ Confira: https://madamejanara.streamlit.app")
+                msg = urllib.parse.quote(f"A Madame Janara revelou nosso futuro! ✨ Confira: https://madamejanara.streamlit.app")
                 st.markdown(f'<a href="https://wa.me/?text={msg}" target="_blank"><button style="width:100%; background:#25D366; color:white; border-radius:50px; border:none; padding:15px; font-weight:bold; cursor:pointer;">📲 Compartilhar no WhatsApp</button></a>', unsafe_allow_html=True)
             else:
-                st.warning("Insira o seu e-mail para desbloquear.")
+                st.warning("Insira o seu e-mail.")
